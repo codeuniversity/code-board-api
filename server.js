@@ -22,18 +22,45 @@ const io = socketIo(server);
 
 
 server.listen(port, () => console.log(`Listening on port ${port}`));
+
 let temp = null;
+
 app.post('/calendar',(req, res)=>{
-    console.log(req.body);
-    res.send({});
     temp=req.body;
+    console.log("-----CALENDAR-------");
+    res.send({});
+    let message = req.body;
+    console.log(message);
+    let slimMessage = {
+          end:{
+                dateTime:message.end.dateTime,
+              },
+          description:message.description,
+          summary:message.summary,
+          start:
+          {
+            time_pretty:message.start.time_pretty,
+            dateTime:message.start.dateTime,
+          },
+          duration_minutes:message.duration_minutes,
+          location:message.location,
+
+    };
+
+    console.log("-------THIS IS WHERE THE CALENDAR SLIMMESSAGE IS SUPPOSED TO START-------");
+    console.log(slimMessage);
+    messages.push(slimMessage);
+    io.emit("slack_message",slimMessage);
+
   });
+
+
 app.get('/',(req,res)=>{
     console.log("/");
     res.send(temp);
 });
 
-// let messages = []; // <- temporary, should be a db
+let messages = []; // <- temporary, should be a db
 
 app.post('/slack',(req,res)=>{
     temp=req.body;
@@ -53,40 +80,16 @@ app.post('/slack',(req,res)=>{
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
 });
-// io.on("connection",(socket)=>{
-//     socket.emit("all_messages",messages); // <- REALLY temporary
-//     console.log("client connected");
-//     socket.on("disconnect",()=>{
-//         console.log("client disconnected");
-//     });
-// });
 
-app.post('/calendar',(req,res)=>{
-    temp=req.body;
-    res.send({});
-    let message = req.body;
-    console.log("--------------------CALENDAR-----------------------");
-    console.log(message);
-    let slimMessage =
-    {
-        end:{
-              dateTime:message.end.dateTime,
-            },
-        description:message.description,
-        summary:message.summary,
-        start:
-        {
-          time_pretty:message.start.time_pretty,
-          dateTime:message.start.dateTime,
-        },
-        duration_minutes:message.duration_minutes,
-        location:message.location,
-      };
-    console.log("-------THIS IS WHERE THE CALENDAR SLIMMESSAGE IS SUPPOSED TO START-------");
-    console.log(slimMessage);
 
-    // messages.push(slimMessage);
-    // io.emit("slack_message",slimMessage);
+io.on("connection",(socket)=>{
+    socket.emit("all_messages",messages); // <- REALLY temporary
+    console.log("client connected");
+    socket.on("disconnect",()=>{
+        console.log("client disconnected");
+    });
 });
+
+
 
 console.log("Script works");
