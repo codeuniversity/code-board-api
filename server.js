@@ -9,6 +9,10 @@ var mongoose = require('mongoose');
 app.use(cors());
 app.use(bodyParser.json());
 
+//Connect to Mongoose (MongoDB)
+mongoose.connect('mongodb://admin:testmongodb@codeboard-shard-00-00-iqwvb.mongodb.net:27017,codeboard-shard-00-01-iqwvb.mongodb.net:27017,codeboard-shard-00-02-iqwvb.mongodb.net:27017/test?ssl=true&replicaSet=CodeBoard-shard-0&authSource=admin');
+var db = mongoose.connection;
+
 const server = http.createServer(app);
 
 const io = socketIo(server);
@@ -22,17 +26,9 @@ app.post('/calendar',(req, res)=>{
   });
 app.get('/',(req,res)=>{
     console.log("/");
+    res.send('Hello World');
     res.send(temp);
 });
-
-//MongoDB test
-mongoose.connect('mongodb://admin:testmongodb@codeboard-shard-00-00-iqwvb.mongodb.net:27017,codeboard-shard-00-01-iqwvb.mongodb.net:27017,codeboard-shard-00-02-iqwvb.mongodb.net:27017/test?ssl=true&replicaSet=CodeBoard-shard-0&authSource=admin');
-var db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', function() {
-  // we're connected!
-});
-console.log(mongoose.connection.readyState);
 
 let messages = []; // <- temporary, shoudl be a db
 
@@ -51,16 +47,6 @@ app.post('/slack',(req,res)=>{
     };
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
-});
-
-var uri = "mongodb://admin:testmongodb@codeboard-shard-00-00-iqwvb.mongodb.net:27017,codeboard-shard-00-01-iqwvb.mongodb.net:27017,codeboard-shard-00-02-iqwvb.mongodb.net:27017/test?ssl=true&replicaSet=CodeBoard-shard-0&authSource=admin";
-MongoClient.connect(uri, function(err, db) {
-  if(!err) {
-  console.log("We are connected");
-  }
-  if(err) {
-    console.log("We are not connected");
-  }
 });
 
 io.on("connection",(socket)=>{
