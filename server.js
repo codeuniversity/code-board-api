@@ -11,6 +11,16 @@ const server = http.createServer(app);
 
 const io = socketIo(server);
 
+
+// const MongoClient = require('mongodb').MongoClient;
+// const assert = require('assert');
+// const ObjectId = require('mongodb').ObjectID;
+// const url = 'mongodb://localhost:27017/test';
+
+
+
+
+
 server.listen(port, () => console.log(`Listening on port ${port}`));
 let temp = null;
 app.post('/calendar',(req, res)=>{
@@ -23,7 +33,7 @@ app.get('/',(req,res)=>{
     res.send(temp);
 });
 
-let messages = []; // <- temporary, shoudl be a db
+// let messages = []; // <- temporary, should be a db
 
 app.post('/slack',(req,res)=>{
     temp=req.body;
@@ -37,14 +47,46 @@ app.post('/slack',(req,res)=>{
             name:message.user.name,
             profile:message.user.profile,
         }
-    };    
+    };
+    console.log("-------THIS IS WHERE THE SLACK SLIMMESSAGE IS SUPPOSED TO START-------");
+    console.log(slimMessage);
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
-}); 
-io.on("connection",(socket)=>{
-    socket.emit("all_messages",messages); // <- REALLY temporary
-    console.log("client connected");
-    socket.on("disconnect",()=>{
-        console.log("client disconnected");
-    });
 });
+// io.on("connection",(socket)=>{
+//     socket.emit("all_messages",messages); // <- REALLY temporary
+//     console.log("client connected");
+//     socket.on("disconnect",()=>{
+//         console.log("client disconnected");
+//     });
+// });
+
+app.post('/calendar',(req,res)=>{
+    temp=req.body;
+    res.send({});
+    let message = req.body;
+    console.log("--------------------CALENDAR-----------------------");
+    console.log(message);
+    let slimMessage =
+    {
+        end:{
+              dateTime:message.end.dateTime,
+            },
+        description:message.description,
+        summary:message.summary,
+        start:
+        {
+          time_pretty:message.start.time_pretty,
+          dateTime:message.start.dateTime,
+        },
+        duration_minutes:message.duration_minutes,
+        location:message.location,
+      };
+    console.log("-------THIS IS WHERE THE CALENDAR SLIMMESSAGE IS SUPPOSED TO START-------");
+    console.log(slimMessage);
+
+    // messages.push(slimMessage);
+    // io.emit("slack_message",slimMessage);
+});
+
+console.log("Script works");
