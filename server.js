@@ -44,6 +44,7 @@ app.post('/calendar',(req, res)=>{
           },
           duration_minutes:message.duration_minutes,
           location:message.location,
+          id:message.id,
 
     };
 
