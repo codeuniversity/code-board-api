@@ -6,6 +6,7 @@ const port = process.env.PORT || 4001;
 const bodyParser = require("body-parser");
 var MongoClient = require('mongodb').MongoClient;
 var mongoose = require('mongoose');
+var Schema = mongoose.Schema;
 app.use(cors());
 app.use(bodyParser.json());
 const server = http.createServer(app);
@@ -15,13 +16,32 @@ const io = socketIo(server);
 mongoose.connect('mongodb://admin:testmongodb@codeboard-shard-00-00-iqwvb.mongodb.net:27017,codeboard-shard-00-01-iqwvb.mongodb.net:27017,codeboard-shard-00-02-iqwvb.mongodb.net:27017/test?ssl=true&replicaSet=CodeBoard-shard-0&authSource=admin');
 var db = mongoose.connection;
 
+//Defining Slack Schema
+var slackSchema = mongoose.Schema({
+  text:{
+    type: String,
+    user: {
+      name: String,
+      profile: {
+        first_name: String,
+        last_name: String,
+        medium_image_url: String,
+      }
+    }
+  }
+});
+
+//Compiling slackSchema & Make it accesible
+var Slack = mongoose.model('Slack', slackSchema);
+
+//Show Server Port
 server.listen(port, () => console.log(`Listening on port ${port}`));
 let temp = null;
 
 //Test
 app.get('/',(req,res)=>{
     console.log("/");
-    res.send('Hello World');
+    res.send('Hello Worldd');
     res.send(temp);
 });
 
@@ -41,8 +61,15 @@ app.post('/slack',(req,res)=>{
             profile:message.user.profile,
         }
     };
+    console.log("------- SLACK SLIMMESSAGE -------");
+    console.log(slimMessage);
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
+
+var saveslack  = new Slack(slimMessage);
+saveslack.save(function (err, save) {
+  if (err) return console.error(err);
+  console.log('+++ slimMessage Saved +++');
 });
 
 //Calendar API Zapier REST
@@ -70,13 +97,19 @@ app.post('/calendar',(req, res)=>{
           id:message.id,
 
     };
-
-    console.log("-------THIS IS WHERE THE CALENDAR SLIMMESSAGE IS SUPPOSED TO START-------");
+    console.log("------- CALENDAR SLIMMESSAGE -------");
     console.log(slimMessage);
+
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
 
   });
+
+//Show all saved Messages in Console
+Slack.find(function (err, slack){
+    if (err) return console.error(err);
+    console.log(slack);
+});
 
 //Send data to Socket.io
 io.on("connection",(socket)=>{
