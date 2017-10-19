@@ -6,25 +6,32 @@ const port = process.env.PORT || 4001;
 const bodyParser = require("body-parser");
 app.use(cors());
 app.use(bodyParser.json());
-
 const server = http.createServer(app);
-
 const io = socketIo(server);
-
-
-// const MongoClient = require('mongodb').MongoClient;
-// const assert = require('assert');
-// const ObjectId = require('mongodb').ObjectID;
-// const url = 'mongodb://localhost:27017/test';
-
-
-
-
-
 server.listen(port, () => console.log(`Listening on port ${port}`));
-
 let temp = null;
 
+//Slack API
+app.post('/slack',(req,res)=>{
+    temp=req.body;
+    console.log("-----SLACK-------");
+    res.send({});
+    let message = req.body;
+    console.log(message);
+    let slimMessage = {
+        text:message.text,
+        user:{
+            name:message.user.name,
+            profile:message.user.profile,
+        }
+    };
+    console.log("-------THIS IS WHERE THE SLACK SLIMMESSAGE IS SUPPOSED TO START-------");
+    console.log(slimMessage);
+    messages.push(slimMessage);
+    io.emit("slack_message",slimMessage);
+});
+
+//Calendar API
 app.post('/calendar',(req, res)=>{
     temp=req.body;
     console.log("-----CALENDAR-------");
@@ -55,34 +62,18 @@ app.post('/calendar',(req, res)=>{
 
   });
 
-
+//Test if Node Running & Working
 app.get('/',(req,res)=>{
     console.log("/");
     res.send(temp);
 });
 
+
 let messages = []; // <- temporary, should be a db
 
-app.post('/slack',(req,res)=>{
-    temp=req.body;
-    console.log("-----SLACK-------");
-    res.send({});
-    let message = req.body;
-    console.log(message);
-    let slimMessage = {
-        text:message.text,
-        user:{
-            name:message.user.name,
-            profile:message.user.profile,
-        }
-    };
-    console.log("-------THIS IS WHERE THE SLACK SLIMMESSAGE IS SUPPOSED TO START-------");
-    console.log(slimMessage);
-    messages.push(slimMessage);
-    io.emit("slack_message",slimMessage);
-});
 
 
+//Send data vie Socket.io
 io.on("connection",(socket)=>{
     socket.emit("all_messages",messages); // <- REALLY temporary
     console.log("client connected");
