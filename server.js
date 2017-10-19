@@ -18,14 +18,14 @@ var db = mongoose.connection;
 
 //Defining Slack Schema
 var slackSchema = mongoose.Schema({
-  text:{
+  text: {
     type: String,
     user: {
       name: String,
       profile: {
         first_name: String,
         last_name: String,
-        medium_image_url: String,
+        medium_image_url: String
       }
     }
   }
@@ -66,10 +66,21 @@ app.post('/slack',(req,res)=>{
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
 
-var saveslack  = new Slack(slimMessage);
-saveslack.save(function (err, save) {
-  if (err) return console.error(err);
-  console.log('+++ slimMessage Saved +++');
+    //Save Slack Message to DB
+    var saveslack  = new Slack(slimMessage);
+    saveslack.save(function (err, save) {
+      if (err) return console.error(err);
+      console.log('+++ slimMessage Saved +++');
+    });
+    res.json(slimMessage);
+
+
+});
+
+//Show all DB Slack Messages in Console
+Slack.find(function (err, slack){
+    if (err) return console.error(err);
+    console.log(slack);
 });
 
 //Calendar API Zapier REST
@@ -99,17 +110,10 @@ app.post('/calendar',(req, res)=>{
     };
     console.log("------- CALENDAR SLIMMESSAGE -------");
     console.log(slimMessage);
-
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
-
   });
 
-//Show all saved Messages in Console
-Slack.find(function (err, slack){
-    if (err) return console.error(err);
-    console.log(slack);
-});
 
 //Send data to Socket.io
 io.on("connection",(socket)=>{
