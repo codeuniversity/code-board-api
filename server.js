@@ -4,14 +4,30 @@ const socketIo = require("socket.io");
 const cors = require("cors");
 const port = process.env.PORT || 4001;
 const bodyParser = require("body-parser");
+var MongoClient = require('mongodb').MongoClient;
+var mongoose = require('mongoose');
 app.use(cors());
 app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = socketIo(server);
+
+//Connect to Mongoose (MongoDB)
+mongoose.connect('mongodb://admin:testmongodb@codeboard-shard-00-00-iqwvb.mongodb.net:27017,codeboard-shard-00-01-iqwvb.mongodb.net:27017,codeboard-shard-00-02-iqwvb.mongodb.net:27017/test?ssl=true&replicaSet=CodeBoard-shard-0&authSource=admin');
+var db = mongoose.connection;
+
 server.listen(port, () => console.log(`Listening on port ${port}`));
 let temp = null;
 
-//Slack API
+//Test
+app.get('/',(req,res)=>{
+    console.log("/");
+    res.send('Hello World');
+    res.send(temp);
+});
+
+let messages = []; // <- temporary, shoudl be a db
+
+//Slack Zapier API REST
 app.post('/slack',(req,res)=>{
     temp=req.body;
     console.log("-----SLACK-------");
@@ -25,14 +41,14 @@ app.post('/slack',(req,res)=>{
             profile:message.user.profile,
         }
     };
-    console.log("-------THIS IS WHERE THE SLACK SLIMMESSAGE IS SUPPOSED TO START-------");
-    console.log(slimMessage);
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
 });
 
-//Calendar API
+//Calendar API Zapier REST
 app.post('/calendar',(req, res)=>{
+    console.log(req.body);
+    res.send({});
     temp=req.body;
     console.log("-----CALENDAR-------");
     res.send({});
@@ -62,18 +78,7 @@ app.post('/calendar',(req, res)=>{
 
   });
 
-//Test if Node Running & Working
-app.get('/',(req,res)=>{
-    console.log("/");
-    res.send(temp);
-});
-
-
-let messages = []; // <- temporary, should be a db
-
-
-
-//Send data vie Socket.io
+//Send data to Socket.io
 io.on("connection",(socket)=>{
     socket.emit("all_messages",messages); // <- REALLY temporary
     console.log("client connected");
@@ -81,7 +86,3 @@ io.on("connection",(socket)=>{
         console.log("client disconnected");
     });
 });
-
-
-
-console.log("Script works");
