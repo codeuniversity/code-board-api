@@ -5,34 +5,13 @@ const cors = require("cors");
 const port = process.env.PORT || 4001;
 const bodyParser = require("body-parser");
 var MongoClient = require('mongodb').MongoClient;
-var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
+var assert = require('assert');
+var ObjectId = require('mongodb').ObjectID;
+var urlmongodb = 'mongodb://admin:testmongodb@codeboard-shard-00-00-iqwvb.mongodb.net:27017,codeboard-shard-00-01-iqwvb.mongodb.net:27017,codeboard-shard-00-02-iqwvb.mongodb.net:27017/test?ssl=true&replicaSet=CodeBoard-shard-0&authSource=admin';
 app.use(cors());
 app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = socketIo(server);
-
-//Connect to Mongoose (MongoDB)
-mongoose.connect('mongodb://admin:testmongodb@codeboard-shard-00-00-iqwvb.mongodb.net:27017,codeboard-shard-00-01-iqwvb.mongodb.net:27017,codeboard-shard-00-02-iqwvb.mongodb.net:27017/test?ssl=true&replicaSet=CodeBoard-shard-0&authSource=admin');
-var db = mongoose.connection;
-
-//Defining Slack Schema
-var slackSchema = mongoose.Schema({
-  text: {
-    type: String,
-    user: {
-      name: String,
-      profile: {
-        first_name: String,
-        last_name: String,
-        medium_image_url: String
-      }
-    }
-  }
-});
-
-//Compiling slackSchema & Make it accesible
-var Slack = mongoose.model('Slack', slackSchema);
 
 //Show Server Port
 server.listen(port, () => console.log(`Listening on port ${port}`));
@@ -63,25 +42,22 @@ app.post('/slack',(req,res)=>{
     };
     console.log("------- SLACK SLIMMESSAGE -------");
     console.log(slimMessage);
+
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
 
-    //Save Slack Message to DB
-    var saveslack  = new Slack(slimMessage);
-    saveslack.save(function (err, save) {
-      if (err) return console.error(err);
-      console.log('+++ slimMessage Saved +++');
+    //Connect to MongoDB & Insert slimMessage
+    MongoClient.connect(urlmongodb, function(err, db) {
+      assert.equal(null, err);
+      console.log("Connected correctly to server.");
+      insertDocument(db, function() {
+        db.collection('slack').insertOne(slimMessage);
+        console.log("+++ SlimMessage inserted to MongoDB +++");
+        db.close();
+      });
     });
-    res.json(slimMessage);
-
-
 });
 
-//Show all DB Slack Messages in Console
-Slack.find(function (err, slack){
-    if (err) return console.error(err);
-    console.log(slack);
-});
 
 //Calendar API Zapier REST
 app.post('/calendar',(req, res)=>{
@@ -110,8 +86,20 @@ app.post('/calendar',(req, res)=>{
     };
     console.log("------- CALENDAR SLIMMESSAGE -------");
     console.log(slimMessage);
+
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
+
+    //Connect to MongoDB & Insert slimMessage
+    MongoClient.connect(urlmongodb, function(err, db) {
+      assert.equal(null, err);
+      console.log("Connected correctly to server.");
+      insertDocument(db, function() {
+        db.collection('calendar').insertOne(slimMessage);
+        console.log("+++ SlimMessage (Calendar) inserted to MongoDB +++");
+        db.close();
+      });
+    });
   });
 
 
