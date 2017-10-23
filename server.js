@@ -113,6 +113,44 @@ app.post('/calendar',(req, res)=>{
     });
   });
 
+//Show all Inserted Slack & Calender Itmes from MongoDB
+var findSlack = function(db, callback) {
+   var cursor =db.collection('slack').find( );
+   cursor.each(function(err, doc) {
+      assert.equal(err, null);
+      if (doc != null) {
+         console.dir(doc);
+      } else {
+         callback();
+      }
+   });
+};
+MongoClient.connect(urlmongodb, function(err, db) {
+  assert.equal(null, err);
+  findSlack(db, function() {
+      db.close();
+      console.log("All Slack Items printed!");
+
+  });
+});
+var findCalendar = function(db, callback) {
+   var cursor =db.collection('calendar').find( );
+   cursor.each(function(err, doc) {
+      assert.equal(err, null);
+      if (doc != null) {
+         console.dir(doc);
+      } else {
+         callback();
+      }
+   });
+};
+MongoClient.connect(urlmongodb, function(err, db) {
+  assert.equal(null, err);
+  findCalendar(db, function() {
+      db.close();
+      console.log("All Calendar Items printed!");
+  });
+});
 
 
 
