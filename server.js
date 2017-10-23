@@ -20,9 +20,18 @@ let temp = null;
 //Test
 app.get('/',(req,res)=>{
     console.log("/");
-    res.send('Hello Worldd');
+    res.send('Hello World');
     res.send(temp);
 });
+
+//Defining Slack Insert function
+var insertSlack = function(db, callback) {
+   db.collection('slack').insertOne( SlimMessage, function(err, result) {
+    assert.equal(err, null);
+    console.log("+++ Inserted a document into the slack collection +++");
+    callback();
+  });
+};
 
 let messages = []; // <- temporary, shoudl be a db
 
@@ -46,18 +55,23 @@ app.post('/slack',(req,res)=>{
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
 
-    //Connect to MongoDB & Insert slimMessage
+    //Connect to MongoDB & Insert slimMessage (Slack)
     MongoClient.connect(urlmongodb, function(err, db) {
       assert.equal(null, err);
-      console.log("Connected correctly to server.");
-      insertDocument(db, function() {
-        db.collection('slack').insertOne(slimMessage);
-        console.log("+++ SlimMessage inserted to MongoDB +++");
-        db.close();
+      insertSlack(db, function() {
+          db.close();
       });
     });
 });
 
+//Defining Calendar Insert function
+var insertCalendar = function(db, callback) {
+   db.collection('calendar').insertOne( SlimMessage, function(err, result) {
+    assert.equal(err, null);
+    console.log("+++ Inserted a document into the calendar collection +++");
+    callback();
+  });
+};
 
 //Calendar API Zapier REST
 app.post('/calendar',(req, res)=>{
@@ -90,17 +104,16 @@ app.post('/calendar',(req, res)=>{
     messages.push(slimMessage);
     io.emit("slack_message",slimMessage);
 
-    //Connect to MongoDB & Insert slimMessage
+    //Connect to MongoDB & Insert slimMessage (Calendar)
     MongoClient.connect(urlmongodb, function(err, db) {
       assert.equal(null, err);
-      console.log("Connected correctly to server.");
-      insertDocument(db, function() {
-        db.collection('calendar').insertOne(slimMessage);
-        console.log("+++ SlimMessage (Calendar) inserted to MongoDB +++");
-        db.close();
+      insertCalendar(db, function() {
+          db.close();
       });
     });
   });
+
+
 
 
 //Send data to Socket.io
