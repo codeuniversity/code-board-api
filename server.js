@@ -1,122 +1,132 @@
-const app = require("express")();
-const http = require("http");
-const socketIo = require("socket.io");
-const cors = require("cors");
+require('dotenv').config();
+const app = require('express')();
+const http = require('http');
+const socketIo = require('socket.io');
+const cors = require('cors');
 const port = process.env.PORT || 4001;
-const bodyParser = require("body-parser");
-var MongoClient = require('mongodb').MongoClient;
-var assert = require('assert');
-var ObjectId = require('mongodb').ObjectID;
-var urlmongodb = 'mongodb://admin:testmongodb@codeboard-shard-00-00-iqwvb.mongodb.net:27017,codeboard-shard-00-01-iqwvb.mongodb.net:27017,codeboard-shard-00-02-iqwvb.mongodb.net:27017/test?ssl=true&replicaSet=CodeBoard-shard-0&authSource=admin';
+const bodyParser = require('body-parser');
+
+const MongoClient = require('mongodb').MongoClient;
+const assert = require('assert');
+const ObjectId = require('mongodb').ObjectID;
+const urlmongodb = process.env.MONGO_URL;
+
 app.use(cors());
 app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = socketIo(server);
 
-var messages = [];
 
-//Show Server Port
-server.listen(port, () => console.log(`Listening on port ${port}`));
-let temp = null;
+MongoClient.connect(urlmongodb, function (err, db) {
+  app.post('/slack', (req, res) => {
+    let message = req.body;
+    io.emit("slack_message", slackSerializer(message));
+    insertSlackMessage(db, message);
+    res.send({});
 
-//Test
-app.get('/',(req,res)=>{
-    console.log("/");
-    res.send('Hello World');
-    res.send(temp);
-});
-
-//Show all Inserted Slack & Calender Itmes from MongoDB
-MongoClient.connect(urlmongodb, function(err, db) {
-  if (err) throw err;
-  db.collection("slack").find({}).toArray(function(err, result) {
-    if (err) throw err;
-    console.log(result);
-    console.log("All Slack Items printed!");
-    messages = result;
-    db.close();
-  });
-  db.collection("calendar").find({}).toArray(function(err, result) {
-    if (err) throw err;
-    console.log(result);
-    console.log("All Calendar Items printed!");
-    var allcalendar = result;
-    db.close();
-  });
-});
-
-var messages = []; // <- temporary, shoudl be a db
-
-var date = new Date();
-var current_hour = date.getHours();
-var current_minutes = date.getMinutes();
-var current_time = current_hour + ":" + current_minutes;
-
-//Slack Zapier API REST
-app.post('/slack',(req,res)=>{
-    temp=req.body;
     console.log("-----SLACK-------");
+    console.log(message);
+
+  });
+
+  app.post('/calendar', (req, res) => {
+    let message = req.body;
+    io.emit("calendar_message", calendarSerializer(message));
+    insertCalendarMessage(db, message);
     res.send({});
-    let messageSlack = req.body;
-    console.log(messageSlack);
 
-    messages.push(messageSlack);
-    io.emit("slack_message",messageSlack);
-
-    //Defining Slack Insert function
-    var insertSlack = function(db, callback) {
-       db.collection('slack').insertOne(messageSlack, function(err, result) {
-        assert.equal(err, null);
-        console.log("+++ Inserted a document into the slack collection +++");
-        callback();
-      });
-    };
-
-    //Connect to MongoDB & Insert slimMessage (Slack)
-    MongoClient.connect(urlmongodb, function(err, db) {
-      assert.equal(null, err);
-      insertSlack(db, function() {
-          db.close();
-      });
-    });
-});
-
-//Calendar API Zapier REST
-app.post('/calendar',(req, res)=>{
-    console.log(req.body);
-    res.send({});
-    temp=req.body;
     console.log("-----CALENDAR-------");
-    res.send({});
-    let messageCalendar = req.body;
-    console.log(messageCalendar);
-    messages.push(messageCalendar);
-    io.emit("slack_message",messageCalendar);
+    console.log(message);
 
-    //Defining Calendar Insert function
-    var insertCalendar = function(db, callback) {
-       db.collection('calendar').insertOne( messageCalendar, function(err, result) {
-        assert.equal(err, null);
-        console.log("+++ Inserted a document into the calendar collection +++");
-        callback();
-      });
-    };
+  });
 
-    //Connect to MongoDB & Insert slimMessage (Calendar)
-    MongoClient.connect(urlmongodb, function(err, db) {
-      assert.equal(null, err);
-      insertCalendar(db, function() {
-          db.close();
-      });
+  //socket io
+  io.on("connection", (socket) => {
+    console.log("client connected");
+
+    getSlackMessages(db, (messages) => {
+      let slimMessages = messages.map(slackSerializer);
+      io.emit("all_slack_messages", slimMessages);
+    });
+
+    getCalendarMessages(db, (messages) => {
+      let slimMessages = messages.map(calendarSerializer);
+      io.emit("all_calendar_messages", slimMessages);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("client disconnected");
     });
   });
 
+  getCalendarMessages(db, (messages) => {
+    console.log(`Calendar message count: ${messages.length}`);
+  });
+  getSlackMessages(db, (messages) => {
+    console.log(`Slack message count: ${messages.length}`);
+  });
 
-//Send data to Socket.io
-io.on("connection",(socket)=>{
-    socket.emit("all_messages",messages); // <- REALLY temporary
-    console.log("client connected");
-    socket.on("disconnect",()=>{
-        console.log("client disconnected");
-    });
+  server.listen(port, () => console.log(`Listening on port ${port}`));
 });
+
+
+//helper functions
+
+function getSlackMessages(db, cb) {
+  db.collection('slack').find({}).toArray(function (err, result) {
+    assert.equal(err, null);
+    cb(result);
+  });
+}
+
+function getCalendarMessages(db, cb) {
+  db.collection('calendar').find({}).toArray(function (err, result) {
+    assert.equal(err, null);
+    cb(result);
+  });
+}
+
+function insertSlackMessage(db, message) {
+  db.collection('slack').insertOne(message, function (err, result) {
+    assert.equal(err, null);
+    console.log("+++ Inserted a document into the slack collection +++");
+  });
+}
+
+function insertCalendarMessage(db, message) {
+  db.collection('calendar').insertOne(message, function (err, result) {
+    assert.equal(err, null);
+    console.log("+++ Inserted a document into the calendar collection +++");
+  });
+}
+
+function slackSerializer(message) {
+  let slimMessage = {
+    text: message.text,
+    user: {
+      name: message.user.name,
+      profile: message.user.profile,
+    }
+  };
+  return slimMessage;
+}
+
+function calendarSerializer(message) {
+  let slimMessage = {
+    end: {
+      dateTime: message.end.dateTime,
+    },
+    description: message.description,
+    summary: message.summary,
+    start: {
+      time_pretty: message.start.time_pretty,
+      dateTime: message.start.dateTime,
+    },
+    duration_minutes: message.duration_minutes,
+    location: message.location,
+    id: message.id,
+
+  };
+  return slimMessage;
+
+}
