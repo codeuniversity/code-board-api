@@ -24,14 +24,7 @@ app.get('/',(req,res)=>{
     res.send(temp);
 });
 
-//Defining Slack Insert function
-var insertSlack = function(db, callback) {
-   db.collection('slack').insertOne( SlimMessage, function(err, result) {
-    assert.equal(err, null);
-    console.log("+++ Inserted a document into the slack collection +++");
-    callback();
-  });
-};
+
 
 let messages = []; // <- temporary, shoudl be a db
 
@@ -42,7 +35,7 @@ app.post('/slack',(req,res)=>{
     res.send({});
     let message = req.body;
     console.log(message);
-    let slimMessage = {
+    var slimMessageSlack = {
         text:message.text,
         user:{
             name:message.user.name,
@@ -50,10 +43,19 @@ app.post('/slack',(req,res)=>{
         }
     };
     console.log("------- SLACK SLIMMESSAGE -------");
-    console.log(slimMessage);
+    console.log(slimMessageSlack);
 
-    messages.push(slimMessage);
-    io.emit("slack_message",slimMessage);
+    messages.push(slimMessageSlack);
+    io.emit("slack_message",slimMessageSlack);
+
+    //Defining Slack Insert function
+    var insertSlack = function(db, callback) {
+       db.collection('slack').insertOne(slimMessageSlack, function(err, result) {
+        assert.equal(err, null);
+        console.log("+++ Inserted a document into the slack collection +++");
+        callback();
+      });
+    };
 
     //Connect to MongoDB & Insert slimMessage (Slack)
     MongoClient.connect(urlmongodb, function(err, db) {
@@ -64,15 +66,6 @@ app.post('/slack',(req,res)=>{
     });
 });
 
-//Defining Calendar Insert function
-var insertCalendar = function(db, callback) {
-   db.collection('calendar').insertOne( SlimMessage, function(err, result) {
-    assert.equal(err, null);
-    console.log("+++ Inserted a document into the calendar collection +++");
-    callback();
-  });
-};
-
 //Calendar API Zapier REST
 app.post('/calendar',(req, res)=>{
     console.log(req.body);
@@ -82,7 +75,7 @@ app.post('/calendar',(req, res)=>{
     res.send({});
     let message = req.body;
     console.log(message);
-    let slimMessage = {
+    var slimMessageCalendar = {
           end:{
                 dateTime:message.end.dateTime,
               },
@@ -99,10 +92,19 @@ app.post('/calendar',(req, res)=>{
 
     };
     console.log("------- CALENDAR SLIMMESSAGE -------");
-    console.log(slimMessage);
+    console.log(slimMessageCalendar);
 
-    messages.push(slimMessage);
-    io.emit("slack_message",slimMessage);
+    messages.push(slimMessageCalendar);
+    io.emit("slack_message",slimMessageCalendar);
+
+    //Defining Calendar Insert function
+    var insertCalendar = function(db, callback) {
+       db.collection('calendar').insertOne( slimMessageCalendar, function(err, result) {
+        assert.equal(err, null);
+        console.log("+++ Inserted a document into the calendar collection +++");
+        callback();
+      });
+    };
 
     //Connect to MongoDB & Insert slimMessage (Calendar)
     MongoClient.connect(urlmongodb, function(err, db) {
