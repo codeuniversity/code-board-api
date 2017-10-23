@@ -13,6 +13,8 @@ app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = socketIo(server);
 
+var messages = [];
+
 //Show Server Port
 server.listen(port, () => console.log(`Listening on port ${port}`));
 let temp = null;
@@ -24,33 +26,46 @@ app.get('/',(req,res)=>{
     res.send(temp);
 });
 
+//Show all Inserted Slack & Calender Itmes from MongoDB
+MongoClient.connect(urlmongodb, function(err, db) {
+  if (err) throw err;
+  db.collection("slack").find({}).toArray(function(err, result) {
+    if (err) throw err;
+    console.log(result);
+    console.log("All Slack Items printed!");
+    messages = result;
+    db.close();
+  });
+  db.collection("calendar").find({}).toArray(function(err, result) {
+    if (err) throw err;
+    console.log(result);
+    console.log("All Calendar Items printed!");
+    var allcalendar = result;
+    db.close();
+  });
+});
 
+var messages = []; // <- temporary, shoudl be a db
 
-let messages = []; // <- temporary, shoudl be a db
+var date = new Date();
+var current_hour = date.getHours();
+var current_minutes = date.getMinutes();
+var current_time = current_hour + ":" + current_minutes;
 
 //Slack Zapier API REST
 app.post('/slack',(req,res)=>{
     temp=req.body;
     console.log("-----SLACK-------");
     res.send({});
-    let message = req.body;
-    console.log(message);
-    var slimMessageSlack = {
-        text:message.text,
-        user:{
-            name:message.user.name,
-            profile:message.user.profile,
-        }
-    };
-    console.log("------- SLACK SLIMMESSAGE -------");
-    console.log(slimMessageSlack);
+    let messageSlack = req.body;
+    console.log(messageSlack);
 
-    messages.push(slimMessageSlack);
-    io.emit("slack_message",slimMessageSlack);
+    messages.push(messageSlack);
+    io.emit("slack_message",messageSlack);
 
     //Defining Slack Insert function
     var insertSlack = function(db, callback) {
-       db.collection('slack').insertOne(slimMessageSlack, function(err, result) {
+       db.collection('slack').insertOne(messageSlack, function(err, result) {
         assert.equal(err, null);
         console.log("+++ Inserted a document into the slack collection +++");
         callback();
@@ -73,33 +88,14 @@ app.post('/calendar',(req, res)=>{
     temp=req.body;
     console.log("-----CALENDAR-------");
     res.send({});
-    let message = req.body;
-    console.log(message);
-    var slimMessageCalendar = {
-          end:{
-                dateTime:message.end.dateTime,
-              },
-          description:message.description,
-          summary:message.summary,
-          start:
-          {
-            time_pretty:message.start.time_pretty,
-            dateTime:message.start.dateTime,
-          },
-          duration_minutes:message.duration_minutes,
-          location:message.location,
-          id:message.id,
-
-    };
-    console.log("------- CALENDAR SLIMMESSAGE -------");
-    console.log(slimMessageCalendar);
-
-    messages.push(slimMessageCalendar);
-    io.emit("slack_message",slimMessageCalendar);
+    let messageCalendar = req.body;
+    console.log(messageCalendar);
+    messages.push(messageCalendar);
+    io.emit("slack_message",messageCalendar);
 
     //Defining Calendar Insert function
     var insertCalendar = function(db, callback) {
-       db.collection('calendar').insertOne( slimMessageCalendar, function(err, result) {
+       db.collection('calendar').insertOne( messageCalendar, function(err, result) {
         assert.equal(err, null);
         console.log("+++ Inserted a document into the calendar collection +++");
         callback();
@@ -114,46 +110,6 @@ app.post('/calendar',(req, res)=>{
       });
     });
   });
-
-//Show all Inserted Slack & Calender Itmes from MongoDB
-var findSlack = function(db, callback) {
-   var cursor =db.collection('slack').find( );
-   cursor.each(function(err, doc) {
-      assert.equal(err, null);
-      if (doc != null) {
-         console.dir(doc);
-      } else {
-         callback();
-      }
-   });
-};
-MongoClient.connect(urlmongodb, function(err, db) {
-  assert.equal(null, err);
-  findSlack(db, function() {
-      db.close();
-      console.log("All Slack Items printed!");
-
-  });
-});
-var findCalendar = function(db, callback) {
-   var cursor =db.collection('calendar').find( );
-   cursor.each(function(err, doc) {
-      assert.equal(err, null);
-      if (doc != null) {
-         console.dir(doc);
-      } else {
-         callback();
-      }
-   });
-};
-MongoClient.connect(urlmongodb, function(err, db) {
-  assert.equal(null, err);
-  findCalendar(db, function() {
-      db.close();
-      console.log("All Calendar Items printed!");
-  });
-});
-
 
 
 //Send data to Socket.io
