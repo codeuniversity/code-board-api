@@ -61,6 +61,8 @@ MongoClient.connect(urlmongodb, function (err, db) {
 
   getCalendarMessages(db, (messages) => {
     console.log(`Calendar message count: ${messages.length}`);
+    console.log(messages.map(calendarSerializer));
+
   });
   getSlackMessages(db, (messages) => {
     console.log(`Slack message count: ${messages.length}`);
@@ -122,6 +124,7 @@ function calendarSerializer(message) {
     summary: message.summary,
     start: {
       time_pretty: message.start.time_pretty,
+      very_pretty: getNiceDate(message.start.dateTime),
       dateTime: message.start.dateTime,
     },
     duration_minutes: message.duration_minutes,
@@ -131,4 +134,19 @@ function calendarSerializer(message) {
   };
   return slimMessage;
 
-}
+};
+
+
+function getNiceDate(dateTime){
+  var timeNow = new Date();
+  var time = new Date(dateTime);
+  var todayAsNumber = timeNow.getDate()
+  var thisMonthAsNumber = timeNow.getMonth()
+  var thisYearAsNumber = timeNow.getFullYear()
+  if(timeNow.toDateString() === time.toDateString()){
+    return "Today, " + time.toLocaleTimeString();
+  }else if(todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
+    return  "Tomorrow, " + time.toLocaleTimeString();
+  }else {return null
+    }
+};
