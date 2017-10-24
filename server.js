@@ -10,6 +10,7 @@ const MongoClient = require('mongodb').MongoClient;
 const assert = require('assert');
 const ObjectId = require('mongodb').ObjectID;
 const urlmongodb = process.env.MONGO_URL;
+const ObjectID = require('mongodb').ObjectID;
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -33,6 +34,7 @@ MongoClient.connect(urlmongodb, function (err, db) {
     let message = req.body;
     io.emit("calendar_message", calendarSerializer(message));
     insertCalendarMessage(db, message);
+    
     res.send({});
 
     console.log("-----CALENDAR-------");
@@ -94,9 +96,22 @@ function insertSlackMessage(db, message) {
 }
 
 function insertCalendarMessage(db, message) {
-  db.collection('calendar').insertOne(message, function (err, result) {
-    assert.equal(err, null);
-    console.log("+++ Inserted a document into the calendar collection +++");
+  let details = {id: message.id};
+  db.collection('calendar').remove(details,(removeErr,items)=>{
+    db.collection('calendar').insertOne(message, function (err, result) {
+      if(err){
+        console.log(err);
+      }else{
+        console.log("removed: ");
+        // console.log(items);
+        getCalendarMessages(db,(messages)=>{
+          io.emit('all_calendar_messages',messages);          
+        });
+      }
+      assert.equal(err, null);
+      console.log("+++ Inserted a document into the calendar collection +++");
+
+    });
   });
 }
 
