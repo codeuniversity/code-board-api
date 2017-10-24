@@ -103,6 +103,7 @@ function insertCalendarMessage(db, message) {
 function slackSerializer(message) {
   let slimMessage = {
     text: message.text,
+    createdAt:new Date(message.ts * 1000),
     user: {
       name: message.user.name,
       profile: message.user.profile,
@@ -114,6 +115,7 @@ function slackSerializer(message) {
 function calendarSerializer(message) {
   let slimMessage = {
     end: {
+      time_pretty: message.end.time_pretty,
       dateTime: message.end.dateTime,
     },
     description: message.description,
