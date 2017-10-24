@@ -21,6 +21,7 @@
     "google-auth-library": "^0.11.0",
     "googleapis": "^22.2.0",
     "mongodb": "^2.2.33",
+    "refresh-token": "^1.0.0",
     "socket.io": "^2.0.3",
     "vbb-client": "^2.1.0"
   }

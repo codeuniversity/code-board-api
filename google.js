@@ -3,7 +3,12 @@ const fs = require('fs');
 const readline = require('readline');
 const google = require('googleapis');
 const googleAuth = require('google-auth-library');
-
+const TokenProvider = require('refresh-token').GoogleTokenProvider;
+const tokenProvider=new TokenProvider({
+  refresh_token:process.env.GOOGLE_REFRESH_TOKEN, 
+  client_id:process.env.GOOGLE_CLIENT_ID, 
+  client_secret:process.env.GOOGLE_CLIENT_SECRET,
+});
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/calendar-nodejs-quickstart.json
 const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
@@ -21,12 +26,15 @@ module.exports = function getEvents(cb) {
 function authorize(callback, ...rest) {
   var auth = new googleAuth();
   var oauth2Client = new auth.OAuth2();
-  oauth2Client.credentials = {
-    access_token: process.env.GOOGLE_ACCESS_TOKEN,
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-  };
-   callback(oauth2Client,...rest);
-
+  tokenProvider.getToken(function (err, token) {
+    oauth2Client.credentials = {
+      access_token: token,
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+      // expiry_date: true,
+    };
+      callback(oauth2Client,...rest); 
+   });
+     
 }
 
 function listEvents(auth,cb) {

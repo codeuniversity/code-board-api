@@ -39,10 +39,6 @@ MongoClient.connect(urlmongodb, function (err, db) {
       io.emit("all_slack_messages", slimMessages);
     });
 
-    // getCalendarMessages(db, (messages) => {
-    //   let slimMessages = messages.map(calendarSerializer);
-    //   io.emit("all_calendar_messages", slimMessages);
-    // });
     getGoogleEvents((messages)=>{
       let slimMessages = messages.map(calendarSerializer);
       io.emit("all_calendar_messages",slimMessages);
@@ -52,37 +48,33 @@ MongoClient.connect(urlmongodb, function (err, db) {
     });
   });
 
-  // getCalendarMessages(db, (messages) => {
-  //   console.log(`Calendar message count: ${messages.length}`);
-  //   console.log(messages.map(calendarSerializer));
-
-  // });
   getSlackMessages(db, (messages) => {
     console.log(`Slack message count: ${messages.length}`);
   });
   getGoogleEvents((events)=>{
-    console.log(events);
+    console.log(`Google event count: ${events.length}`);
   });
   server.listen(port, () => console.log(`Listening on port ${port}`));
 });
+
+setInterval(getLatestCalendar,calendarIntervalTime);
+
+//helper functions
+
 function getLatestCalendar(){
   getGoogleEvents((events)=>{
     io.emit("all_calendar_messages",events.map(calendarSerializer));
   });
 }
-setInterval(getLatestCalendar,calendarIntervalTime);
-
-//helper functions
-
-function getSlackMessages(db, cb) {
-  db.collection('slack').find({}).toArray(function (err, result) {
-    assert.equal(err, null);
-    cb(result);
+function getDelays(){
+  giveDepartures((lines)=>{
+    let delays = lines.map(vbbSerializer).filter(massiveDelay);
+    io.emit('all_delays',delays);
   });
 }
 
-function getCalendarMessages(db, cb) {
-  db.collection('calendar').find({}).toArray(function (err, result) {
+function getSlackMessages(db, cb) {
+  db.collection('slack').find({}).toArray(function (err, result) {
     assert.equal(err, null);
     cb(result);
   });
@@ -92,13 +84,6 @@ function insertSlackMessage(db, message) {
   db.collection('slack').insertOne(message, function (err, result) {
     assert.equal(err, null);
     console.log("+++ Inserted a document into the slack collection +++");
-  });
-}
-
-function insertCalendarMessage(db, message) {
-  db.collection('calendar').insertOne(message, function (err, result) {
-    assert.equal(err, null);
-    console.log("+++ Inserted a document into the calendar collection +++");
   });
 }
 
@@ -154,26 +139,27 @@ function getNiceDate(dateTime) {
 
 
 function giveDepartures(cb) {
-    var Stops = [900190001, 900190010, 900015101, 900014102];
-    for (var i = 0; i < Stops.length; i++) {
-        vbb.departures(Stops[i], {
-                duration: 5
-            })
-            .then(cb)
-    }
-};
-giveDepartures(slimMessage)
+    var stops = [900190001, 900190010, 900015101, 900014102];
+ 
+    let promises = stops.map(stop=>vbb.departures(stop,{duration:5}));
+    Promise.all(promises).then(arrays=>{
+      let allLines = [];
+      arrays.forEach(arr=>allLines = allLines.concat(arr));
+      cb(allLines);
+    });
+}
+giveDepartures(lookIntoVBB);
 
 
 
-function slimMessage(data) {
+function lookIntoVBB(data) {
     let slimMessages = data.map(vbbSerializer);
     console.log("________________ALL_____________");
     console.log(slimMessages);
     console.log("______________DELAYS__________");
     let delays = slimMessages.filter(massiveDelay);
     console.log(delays);
-};
+}
 
 function vbbSerializer(message) {
   let slimMessage = {
@@ -194,7 +180,7 @@ function massiveDelay(message) {
   }
 }
 
-var criticalDelayTime = 5
+var criticalDelayTime = 1;
 
 
 
