@@ -113,7 +113,7 @@ function listEvents(auth) {
     auth: auth,
     calendarId: 'code.berlin_seqdak8636tqjk4fl7qa6mch4c@group.calendar.google.com',
     timeMin: (new Date()).toISOString(),
-    maxResults: 10,
+    maxResults: 25,
     singleEvents: true,
     orderBy: 'startTime'
   }, function(err, response) {
@@ -140,5 +140,5 @@ function listEvents(auth) {
 var CronJob = require('cron').CronJob;
 new CronJob('0,10,20,30,40,50 * * * * *', function() {
   runScript()
-  console.log('You will see this message every second');
+  console.log('You will see this message every 10 second');
 }, null, true, 'America/Los_Angeles');
