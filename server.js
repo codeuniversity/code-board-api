@@ -169,7 +169,7 @@ function giveDepartures() {
 
 function slimMessage(data) {
     for (var x = 0; x < data.length; x++) {
-        console.log(data[x]['station']['name'] + ' : ' + data[x]['line']['product'] + ' ' + data[x]['line']['name'] + ' => ' + data[x]['direction'] + ' : ' + data[x]['when'] + ' Delay in seconds: ' + data[x]['delay']);
+        console.log(data[x].station.name + ' : ' + data[x].line.product + ' ' + data[x].line.name + ' => ' + data[x].direction + ' : ' + data[x].when + ' Delay in minutes: ' + data[x].delay/60);
     }
 };
 
