@@ -114,6 +114,7 @@ function slackSerializer(message) {
   return slimMessage;
 }
 
+
 function calendarSerializer(message) {
   let slimMessage = {
     end: {
@@ -130,7 +131,6 @@ function calendarSerializer(message) {
     duration_minutes: message.duration_minutes,
     location: message.location,
     id: message.id,
-
   };
   return slimMessage;
 
@@ -153,20 +153,58 @@ function getNiceDate(dateTime) {
 }
 
 
-
-
-
 function giveDepartures(cb) {
     var Stops = [900190001, 900190010, 900015101, 900014102];
     for (var i = 0; i < Stops.length; i++) {
         vbb.departures(Stops[i], {
                 duration: 5
             })
-            .then(cb);
+            .then(cb)
     }
-}
+};
+giveDepartures(slimMessage)
+
+
+
 function slimMessage(data) {
-    for (var x = 0; x < data.length; x++) {
-        console.log(data[x].station.name + ' : ' + data[x].line.product + ' ' + data[x].line.name + ' => ' + data[x].direction + ' : ' + data[x].when + ' Delay in minutes: ' + data[x].delay/60);
-    }
+    let slimMessages = data.map(vbbSerializer);
+    console.log("________________ALL_____________");
+    console.log(slimMessages);
+    console.log("______________DELAYS__________");
+    let delays = slimMessages.filter(massiveDelay);
+    console.log(delays);
+};
+
+function vbbSerializer(message) {
+  let slimMessage = {
+    stationName: message.station.name,
+    product: message.line.product,
+    lineName: message.line.name,
+    direction: message.direction,
+    departureTime: message.when,
+    delayInMinutes: message.delay/60
+  };
+  return slimMessage;
 }
+
+
+function massiveDelay(message) {
+  if (message.delayInMinutes > criticalDelayTime) {
+    return true;
+  }
+}
+
+var criticalDelayTime = 5
+
+
+
+//walking times:
+//Treptower Park: 15 Minuten
+//Lohmühlenstraße: 3 Minuten
+//Heckmannufer: 5 Minuten
+//Schlesisches Tor: 13 Minuten
+
+//Treptower Park: 900190001 (S41;S42;S8;S9)
+//Lohmühlenstr.: 900190010
+//Heckmannufer: 900015101
+//Schlesisches Tor: 900014102
