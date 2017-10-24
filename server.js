@@ -36,12 +36,17 @@ MongoClient.connect(urlmongodb, function (err, db) {
 
     getSlackMessages(db, (messages) => {
       let slimMessages = messages.map(slackSerializer);
-      io.emit("all_slack_messages", slimMessages);
+      socket.emit("all_slack_messages", slimMessages);
+    });
+
+    giveDepartures(deps=>{
+      let delays = deps.map(vbbSerializer).filter(massiveDelay);
+      socket.emit('all_delays',delays);
     });
 
     getGoogleEvents((messages)=>{
       let slimMessages = messages.map(calendarSerializer);
-      io.emit("all_calendar_messages",slimMessages);
+      socket.emit("all_calendar_messages",slimMessages);
     });
     socket.on("disconnect", () => {
       console.log("client disconnected");
@@ -57,9 +62,13 @@ MongoClient.connect(urlmongodb, function (err, db) {
   server.listen(port, () => console.log(`Listening on port ${port}`));
 });
 
-setInterval(getLatestCalendar,calendarIntervalTime);
+setInterval(updateClients,calendarIntervalTime);
 
 //helper functions
+function updateClients(){
+  getLatestCalendar();
+  getDelays();
+}
 
 function getLatestCalendar(){
   getGoogleEvents((events)=>{
