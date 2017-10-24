@@ -5,7 +5,8 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const port = process.env.PORT || 4001;
 const bodyParser = require('body-parser');
-
+const vbb = require('vbb-client');
+const getGoogleEvents = require('./google');
 const MongoClient = require('mongodb').MongoClient;
 const assert = require('assert');
 const ObjectId = require('mongodb').ObjectID;
@@ -15,7 +16,7 @@ app.use(cors());
 app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = socketIo(server);
-
+const calendarIntervalTime = 10 * 1000;
 
 MongoClient.connect(urlmongodb, function (err, db) {
   app.post('/slack', (req, res) => {
@@ -29,17 +30,6 @@ MongoClient.connect(urlmongodb, function (err, db) {
 
   });
 
-  app.post('/calendar', (req, res) => {
-    let message = req.body;
-    io.emit("calendar_message", calendarSerializer(message));
-    insertCalendarMessage(db, message);
-    res.send({});
-
-    console.log("-----CALENDAR-------");
-    console.log(message);
-
-  });
-
   //socket io
   io.on("connection", (socket) => {
     console.log("client connected");
@@ -49,28 +39,38 @@ MongoClient.connect(urlmongodb, function (err, db) {
       io.emit("all_slack_messages", slimMessages);
     });
 
-    getCalendarMessages(db, (messages) => {
+    // getCalendarMessages(db, (messages) => {
+    //   let slimMessages = messages.map(calendarSerializer);
+    //   io.emit("all_calendar_messages", slimMessages);
+    // });
+    getGoogleEvents((messages)=>{
       let slimMessages = messages.map(calendarSerializer);
-      io.emit("all_calendar_messages", slimMessages);
+      io.emit("all_calendar_messages",slimMessages);
     });
-
     socket.on("disconnect", () => {
       console.log("client disconnected");
     });
   });
 
-  getCalendarMessages(db, (messages) => {
-    console.log(`Calendar message count: ${messages.length}`);
-    console.log(messages.map(calendarSerializer));
+  // getCalendarMessages(db, (messages) => {
+  //   console.log(`Calendar message count: ${messages.length}`);
+  //   console.log(messages.map(calendarSerializer));
 
-  });
+  // });
   getSlackMessages(db, (messages) => {
     console.log(`Slack message count: ${messages.length}`);
   });
-
+  getGoogleEvents((events)=>{
+    console.log(events);
+  });
   server.listen(port, () => console.log(`Listening on port ${port}`));
 });
-
+function getLatestCalendar(){
+  getGoogleEvents((events)=>{
+    io.emit("all_calendar_messages",events.map(calendarSerializer));
+  });
+}
+setInterval(getLatestCalendar,calendarIntervalTime);
 
 //helper functions
 
@@ -134,7 +134,7 @@ function calendarSerializer(message) {
   };
   return slimMessage;
 
-};
+}
 
 
 function getNiceDate(dateTime) {
@@ -148,29 +148,25 @@ function getNiceDate(dateTime) {
     } else if (todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
         return "Tomorrow, " + time.toLocaleTimeString();
     } else {
-        return null
+        return null;
     }
-};
+}
 
 
 
 
-const vbb = require('vbb-client')
 
-function giveDepartures() {
+function giveDepartures(cb) {
     var Stops = [900190001, 900190010, 900015101, 900014102];
     for (var i = 0; i < Stops.length; i++) {
         vbb.departures(Stops[i], {
                 duration: 5
             })
-            .then(slimMessage)
+            .then(cb);
     }
-};
-
+}
 function slimMessage(data) {
     for (var x = 0; x < data.length; x++) {
         console.log(data[x].station.name + ' : ' + data[x].line.product + ' ' + data[x].line.name + ' => ' + data[x].direction + ' : ' + data[x].when + ' Delay in minutes: ' + data[x].delay/60);
     }
-};
-
-giveDepartures();
+}
