@@ -137,16 +137,40 @@ function calendarSerializer(message) {
 };
 
 
-function getNiceDate(dateTime){
-  var timeNow = new Date();
-  var time = new Date(dateTime);
-  var todayAsNumber = timeNow.getDate()
-  var thisMonthAsNumber = timeNow.getMonth()
-  var thisYearAsNumber = timeNow.getFullYear()
-  if(timeNow.toDateString() === time.toDateString()){
-    return "Today, " + time.toLocaleTimeString();
-  }else if(todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
-    return  "Tomorrow, " + time.toLocaleTimeString();
-  }else {return null
+function getNiceDate(dateTime) {
+    var timeNow = new Date();
+    var time = new Date(dateTime);
+    var todayAsNumber = timeNow.getDate()
+    var thisMonthAsNumber = timeNow.getMonth()
+    var thisYearAsNumber = timeNow.getFullYear()
+    if (timeNow.toDateString() === time.toDateString()) {
+        return "Today, " + time.toLocaleTimeString();
+    } else if (todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
+        return "Tomorrow, " + time.toLocaleTimeString();
+    } else {
+        return null
     }
 };
+
+
+
+
+const vbb = require('vbb-client')
+
+function giveDepartures() {
+    var Stops = [900190001, 900190010, 900015101, 900014102];
+    for (var i = 0; i < Stops.length; i++) {
+        vbb.departures(Stops[i], {
+                duration: 5
+            })
+            .then(slimMessage)
+    }
+};
+
+function slimMessage(data) {
+    for (var x = 0; x < data.length; x++) {
+        console.log(data[x]['station']['name'] + ' : ' + data[x]['line']['product'] + ' ' + data[x]['line']['name'] + ' => ' + data[x]['direction'] + ' : ' + data[x]['when'] + ' Delay in seconds: ' + data[x]['delay']);
+    }
+};
+
+giveDepartures();
