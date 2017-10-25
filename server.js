@@ -56,12 +56,17 @@ var current_time = current_hour + ":" + current_minutes;
 app.post('/slack',(req,res)=>{
     temp=req.body;
     console.log("-----SLACK-------");
+    //Verify Slack
+    //let challengeresponsponse = req.body.challenge;
+    //res.send(challengeresponsponse);
     res.send({});
     let messageSlack = req.body;
-    console.log(messageSlack);
-
-    messages.push(messageSlack);
-    io.emit("slack_message",messageSlack);
+    let team_id = 'T54B2S3T9'
+    if(req.body.team_id == team_id){
+      console.log(messageSlack);
+      messages.push(messageSlack);
+      io.emit("slack_message",messageSlack);
+    };
 
     //Defining Slack Insert function
     var insertSlack = function(db, callback) {
@@ -120,3 +125,20 @@ io.on("connection",(socket)=>{
         console.log("client disconnected");
     });
 });
+
+// -----SLACK-------
+// { token: '7XzZXOewwL9PSRVbWuZCNUgQ',
+//   team_id: 'T54B2S3T9',
+//   api_app_id: 'A7QTK0DUN',
+//   event:
+//    { type: 'message',
+//      user: 'U68MZMMLP',
+//      text: 'test',
+//      ts: '1508970457.000114',
+//      channel: 'G7JRCFJSG',
+//      event_ts: '1508970457.000114' },
+//   type: 'event_callback',
+//   event_id: 'Ev7Q24GJRG',
+//   event_time: 1508970457,
+//   authed_users: [ 'U68MZMMLP' ] }
+// +++ Inserted a document into the slack collection +++
