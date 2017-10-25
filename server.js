@@ -16,7 +16,7 @@ app.use(cors());
 app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = socketIo(server);
-const calendarIntervalTime = 10 * 1000;
+const calendarIntervalTime = 30 * 1000;
 
 MongoClient.connect(urlmongodb, function (err, db) {
   app.post('/slack', (req, res) => {
@@ -134,9 +134,9 @@ function calendarSerializer(message) {
 function getNiceDate(dateTime) {
     var timeNow = new Date();
     var time = new Date(dateTime);
-    var todayAsNumber = timeNow.getDate()
-    var thisMonthAsNumber = timeNow.getMonth()
-    var thisYearAsNumber = timeNow.getFullYear()
+    var todayAsNumber = timeNow.getDate();
+    var thisMonthAsNumber = timeNow.getMonth();
+    var thisYearAsNumber = timeNow.getFullYear();
     if (timeNow.toDateString() === time.toDateString()) {
         return "Today, " + time.toLocaleTimeString();
     } else if (todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
@@ -184,12 +184,12 @@ function vbbSerializer(message) {
 
 
 function massiveDelay(message) {
-  if (message.delayInMinutes > criticalDelayTime) {
+  if (message.delayInMinutes >= criticalDelayTime) {
     return true;
   }
 }
 
-var criticalDelayTime = 1;
+var criticalDelayTime = 4;
 
 
 
