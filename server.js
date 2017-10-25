@@ -17,6 +17,7 @@ app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = socketIo(server);
 const calendarIntervalTime = 30 * 1000;
+const criticalDelayTime = 5; //mins
 
 MongoClient.connect(urlmongodb, function (err, db) {
   app.post('/slack', (req, res) => {
@@ -39,14 +40,14 @@ MongoClient.connect(urlmongodb, function (err, db) {
       socket.emit("all_slack_messages", slimMessages);
     });
 
-    giveDepartures(deps=>{
+    giveDepartures(deps => {
       let delays = deps.map(vbbSerializer).filter(massiveDelay);
-      socket.emit('all_delays',delays);
+      socket.emit('all_delays', delays);
     });
 
-    getGoogleEvents((messages)=>{
+    getGoogleEvents((messages) => {
       let slimMessages = messages.map(calendarSerializer);
-      socket.emit("all_calendar_messages",slimMessages);
+      socket.emit("all_calendar_messages", slimMessages);
     });
     socket.on("disconnect", () => {
       console.log("client disconnected");
@@ -56,29 +57,30 @@ MongoClient.connect(urlmongodb, function (err, db) {
   getSlackMessages(db, (messages) => {
     console.log(`Slack message count: ${messages.length}`);
   });
-  getGoogleEvents((events)=>{
+  getGoogleEvents((events) => {
     console.log(`Google event count: ${events.length}`);
   });
   server.listen(port, () => console.log(`Listening on port ${port}`));
 });
 
-setInterval(updateClients,calendarIntervalTime);
+setInterval(updateClients, calendarIntervalTime);
 
 //helper functions
-function updateClients(){
+function updateClients() {
   getLatestCalendar();
   getDelays();
 }
 
-function getLatestCalendar(){
-  getGoogleEvents((events)=>{
-    io.emit("all_calendar_messages",events.map(calendarSerializer));
+function getLatestCalendar() {
+  getGoogleEvents((events) => {
+    io.emit("all_calendar_messages", events.map(calendarSerializer));
   });
 }
-function getDelays(){
-  giveDepartures((lines)=>{
+
+function getDelays() {
+  giveDepartures((lines) => {
     let delays = lines.map(vbbSerializer).filter(massiveDelay);
-    io.emit('all_delays',delays);
+    io.emit('all_delays', delays);
   });
 }
 
@@ -99,7 +101,7 @@ function insertSlackMessage(db, message) {
 function slackSerializer(message) {
   let slimMessage = {
     text: message.text,
-    createdAt:new Date(message.ts * 1000),
+    createdAt: new Date(message.ts * 1000),
     user: {
       name: message.user.name,
       profile: message.user.profile,
@@ -111,20 +113,21 @@ function slackSerializer(message) {
 
 function calendarSerializer(message) {
   let slimMessage = {
-    end: {
-      time_pretty: message.end.time_pretty,
-      dateTime: message.end.dateTime,
-    },
     description: message.description,
     summary: message.summary,
+    duration_minutes: message.duration_minutes,
+    location: message.location,
+    id: message.id,
     start: {
       time_pretty: message.start.time_pretty,
       very_pretty: getNiceDate(message.start.dateTime),
       dateTime: message.start.dateTime,
     },
-    duration_minutes: message.duration_minutes,
-    location: message.location,
-    id: message.id,
+    end: {
+      time_pretty: message.end.time_pretty,
+      very_pretty: getNiceDate(message.start.dateTime),
+      dateTime: message.end.dateTime,
+    },
   };
   return slimMessage;
 
@@ -132,42 +135,52 @@ function calendarSerializer(message) {
 
 
 function getNiceDate(dateTime) {
-    var timeNow = new Date();
-    var time = new Date(dateTime);
-    var todayAsNumber = timeNow.getDate();
-    var thisMonthAsNumber = timeNow.getMonth();
-    var thisYearAsNumber = timeNow.getFullYear();
-    if (timeNow.toDateString() === time.toDateString()) {
-        return "Today, " + time.toLocaleTimeString();
-    } else if (todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
-        return "Tomorrow, " + time.toLocaleTimeString();
-    } else {
-        return null;
-    }
+  var timeNow = new Date();
+  var time = new Date(dateTime);
+  var todayAsNumber = timeNow.getDate();
+  var thisMonthAsNumber = timeNow.getMonth();
+  var thisYearAsNumber = timeNow.getFullYear();
+  if (timeNow.toDateString() === time.toDateString()) {
+    return time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
+  } else if (todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
+    return "Tomorrow, " + time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
+  } else {
+    return null;
+  }
 }
 
+function getFormatedMinutes(minutes) {
+  let unformatedString = '' + minutes;
+  if (unformatedString.length === 1) {
+    return '0' + unformatedString;
+  } else {
+    return unformatedString;
+  }
+}
 
 function giveDepartures(cb) {
-    var stops = [900190001, 900190010, 900015101, 900014102];
- 
-    let promises = stops.map(stop=>vbb.departures(stop,{duration:5}));
-    Promise.all(promises).then(arrays=>{
-      let allLines = [];
-      arrays.forEach(arr=>allLines = allLines.concat(arr));
-      cb(allLines);
-    });
+  var stops = [900190001, 900190010, 900015101, 900014102];
+
+  let promises = stops.map(stop => vbb.departures(stop, {
+    duration: 5
+  }));
+  Promise.all(promises).then(arrays => {
+    let allLines = [];
+    arrays.forEach(arr => allLines = allLines.concat(arr));
+    cb(allLines);
+  });
 }
 giveDepartures(lookIntoVBB);
 
 
 
 function lookIntoVBB(data) {
-    let slimMessages = data.map(vbbSerializer);
-    console.log("________________ALL_____________");
-    console.log(slimMessages);
-    console.log("______________DELAYS__________");
-    let delays = slimMessages.filter(massiveDelay);
-    console.log(delays);
+  let slimMessages = data.map(vbbSerializer);
+  console.log("________________ALL_____________");
+  console.log(slimMessages);
+  console.log("______________DELAYS__________");
+  let delays = slimMessages.filter(massiveDelay);
+  console.log(delays);
 }
 
 function vbbSerializer(message) {
@@ -177,7 +190,7 @@ function vbbSerializer(message) {
     lineName: message.line.name,
     direction: message.direction,
     departureTime: message.when,
-    delayInMinutes: message.delay/60
+    delayInMinutes: message.delay / 60
   };
   return slimMessage;
 }
@@ -189,7 +202,6 @@ function massiveDelay(message) {
   }
 }
 
-var criticalDelayTime = 4;
 
 
 
