@@ -5,8 +5,8 @@ const google = require('googleapis');
 const googleAuth = require('google-auth-library');
 const TokenProvider = require('refresh-token').GoogleTokenProvider;
 const tokenProvider=new TokenProvider({
-  refresh_token:process.env.GOOGLE_REFRESH_TOKEN, 
-  client_id:process.env.GOOGLE_CLIENT_ID, 
+  refresh_token:process.env.GOOGLE_REFRESH_TOKEN,
+  client_id:process.env.GOOGLE_CLIENT_ID,
   client_secret:process.env.GOOGLE_CLIENT_SECRET,
 });
 // If modifying these scopes, delete your previously saved credentials
@@ -32,16 +32,20 @@ function authorize(callback, ...rest) {
       refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
       // expiry_date: true,
     };
-      callback(oauth2Client,...rest); 
+      callback(oauth2Client,...rest);
    });
-     
+
 }
 
 function listEvents(auth,cb) {
+  var calendarIds = process.env.GOOGLE_CALENDAR_IDS.split(",");
   var calendar = google.calendar('v3');
+  var events = [];
+  var finishedRequests = 0;
+  for(var i = 0; i < calendarIds.length; i++) {
   calendar.events.list({
     auth: auth,
-    calendarId: process.env.GOOGLE_CALENDAR_ID,
+    calendarId: calendarIds[i],
     timeMin: (new Date()).toISOString(),
     maxResults: 10,
     singleEvents: true,
@@ -51,7 +55,10 @@ function listEvents(auth,cb) {
       console.log('The API returned an error: ' + err);
       return;
     }
-    var events = response.items;
-    cb(events);
+    events = events.concat(response.items);
+    finishedRequests++;
+    if(finishedRequests == calendarIds.length)
+      cb(events);
   });
+  }
 }
