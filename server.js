@@ -41,7 +41,7 @@ MongoClient.connect(urlmongodb, function (err, db) {
     });
 
     giveDepartures(deps => {
-      let delays = deps.map(vbbSerializer).filter(massiveDelay);
+      let delays = deps.map(vbbSerializer).filter(relevantLine).filter(massiveDelay);
       socket.emit('all_delays', delays);
     });
 
@@ -79,7 +79,7 @@ function getLatestCalendar() {
 
 function getDelays() {
   giveDepartures((lines) => {
-    let delays = lines.map(vbbSerializer).filter(massiveDelay);
+    let delays = lines.map(vbbSerializer).filter(relevantLine).filter(massiveDelay);
     io.emit('all_delays', delays);
   });
 }
@@ -207,7 +207,7 @@ function relevantLine(message) {
     return true;
   else if(message.stationName === "Lohmühlenstr." && message.lineName === "194" && message.direction === "U Hermannplatz")
     return true;
-  else if(message.stationName === "U Schlesisches Tor" && message.product == "subway")
+  else if(message.stationName === "U Schlesisches Tor" && message.product === "subway")
     return true;
   else if(message.stationName === "Heckmannufer")
     return true;
