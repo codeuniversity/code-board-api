@@ -112,6 +112,10 @@ function slackSerializer(message) {
 
 
 function calendarSerializer(message) {
+  if(!message.start.dateTime && !message.end.dateTime) {
+    message.start.dateTime = message.start.date+"T00:00:00+02:00";
+    message.end.dateTime = message.end.date+"T23:59:59+02:00";
+  }
   let slimMessage = {
     description: message.description,
     summary: message.summary,
