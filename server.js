@@ -143,7 +143,7 @@ function getNiceDate(dateTime) {
   if (timeNow.toDateString() === time.toDateString()) {
     return time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
   } else if (todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
-    return "Tomorrow, " + time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
+    return "" + time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
   } else {
     return null;
   }
