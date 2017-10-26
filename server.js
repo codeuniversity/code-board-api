@@ -207,7 +207,9 @@ function relevantLine(message) {
     return true;
   else if(message.stationName === "Lohmühlenstr." && message.lineName === "194" && message.direction === "U Hermannplatz")
     return true;
-  else if(message.stationName === "U Schlesisches Tor" || message.stationName === "Heckmannufer")
+  else if(message.stationName === "U Schlesisches Tor" && message.product == "subway")
+    return true;
+  else if(message.stationName === "Heckmannufer")
     return true;
   else
     return false;
