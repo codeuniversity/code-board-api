@@ -179,7 +179,7 @@ function lookIntoVBB(data) {
   console.log("________________ALL_____________");
   console.log(slimMessages);
   console.log("______________DELAYS__________");
-  let delays = slimMessages.filter(massiveDelay);
+  let delays = slimMessages.filter(relevantLine).filter(massiveDelay);
   console.log(delays);
 }
 
@@ -200,6 +200,17 @@ function massiveDelay(message) {
   if (message.delayInMinutes >= criticalDelayTime) {
     return true;
   }
+}
+
+function relevantLine(message) {
+  if(message.stationName === "S Treptower Park" && (message.lineName === "S41" || message.lineName === "S42" || message.lineName === "S8" || message.lineName === "S9"))
+    return true;
+  else if(message.stationName === "Lohmühlenstr." && message.lineName === "194" && message.direction === "U Hermannplatz")
+    return true;
+  else if(message.stationName === "U Schlesisches Tor" || message.stationName === "Heckmannufer")
+    return true;
+  else
+    return false;
 }
 
 
