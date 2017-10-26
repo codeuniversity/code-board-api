@@ -1,144 +1,229 @@
-const app = require("express")();
-const http = require("http");
-const socketIo = require("socket.io");
-const cors = require("cors");
+require('dotenv').config();
+const app = require('express')();
+const http = require('http');
+const https = require('https');
+const socketIo = require('socket.io');
+const cors = require('cors');
 const port = process.env.PORT || 4001;
-const bodyParser = require("body-parser");
-var MongoClient = require('mongodb').MongoClient;
-var assert = require('assert');
-var ObjectId = require('mongodb').ObjectID;
-var urlmongodb = 'mongodb://admin:testmongodb@codeboard-shard-00-00-iqwvb.mongodb.net:27017,codeboard-shard-00-01-iqwvb.mongodb.net:27017,codeboard-shard-00-02-iqwvb.mongodb.net:27017/test?ssl=true&replicaSet=CodeBoard-shard-0&authSource=admin';
+const bodyParser = require('body-parser');
+const vbb = require('vbb-client');
+const getGoogleEvents = require('./google');
+const MongoClient = require('mongodb').MongoClient;
+const assert = require('assert');
+const ObjectId = require('mongodb').ObjectID;
+const urlmongodb = process.env.MONGO_URL;
+
 app.use(cors());
 app.use(bodyParser.json());
 const server = http.createServer(app);
 const io = socketIo(server);
+const calendarIntervalTime = 30 * 1000;
+const criticalDelayTime = 5; //mins
 
-var messages = [];
-
-//Show Server Port
-server.listen(port, () => console.log(`Listening on port ${port}`));
-let temp = null;
-
-//Test
-app.get('/',(req,res)=>{
-    console.log("/");
-    res.send('Hello World');
-    res.send(temp);
-});
-
-//Show all Inserted Slack & Calender Itmes from MongoDB
-MongoClient.connect(urlmongodb, function(err, db) {
-  if (err) throw err;
-  db.collection("slack").find({}).toArray(function(err, result) {
-    if (err) throw err;
-    console.log(result);
-    console.log("All Slack Items printed!");
-    messages = result;
-    db.close();
-  });
-  db.collection("calendar").find({}).toArray(function(err, result) {
-    if (err) throw err;
-    console.log(result);
-    console.log("All Calendar Items printed!");
-    var allcalendar = result;
-    db.close();
-  });
-});
-
-var messages = []; // <- temporary, shoudl be a db
-
-var date = new Date();
-var current_hour = date.getHours();
-var current_minutes = date.getMinutes();
-var current_time = current_hour + ":" + current_minutes;
-
-//Slack Zapier API REST
-app.post('/slack',(req,res)=>{
-    temp=req.body;
-    console.log("-----SLACK-------");
-    //Verify Slack
-    //let challengeresponsponse = req.body.challenge;
-    //res.send(challengeresponsponse);
-    res.send({});
-    let messageSlack = req.body;
+MongoClient.connect(urlmongodb, function (err, db) {
+  app.post('/slack', (req, res) => {
+    let message = req.body;
     let team_id = 'T54B2S3T9'
-    if(req.body.team_id == team_id){
-      console.log(messageSlack);
-      messages.push(messageSlack);
-      io.emit("slack_message",messageSlack);
-    };
-
-    //Defining Slack Insert function
-    var insertSlack = function(db, callback) {
-       db.collection('slack').insertOne(messageSlack, function(err, result) {
-        assert.equal(err, null);
-        console.log("+++ Inserted a document into the slack collection +++");
-        callback();
+    console.log("-----SLACK-------");
+    let token = process.env.SLACK_TOKEN;
+    let event = message.event;
+    let userid = event.user;
+    console.log(event);
+    if(message.team_id == team_id){
+      https.get(`https://slack.com/api/users.profile.get?token=${token}&user=${userid}`, (res) => {
+        var userinfo = res.body;
+        event.user = userinfo;
+        io.emit("slack_message", slackSerializer(event));
+        console.log(slackSerializer(event));
+        insertSlackMessage(db, event);
       });
-    };
 
-    //Connect to MongoDB & Insert slimMessage (Slack)
-    MongoClient.connect(urlmongodb, function(err, db) {
-      assert.equal(null, err);
-      insertSlack(db, function() {
-          db.close();
-      });
+    }
+    res.send({});
+
+  });
+
+  //socket io
+  io.on("connection", (socket) => {
+    console.log("client connected");
+
+    getSlackMessages(db, (messages) => {
+      let slimMessages = messages.map(slackSerializer);
+      socket.emit("all_slack_messages", slimMessages);
     });
-});
 
-//Calendar API Zapier REST
-app.post('/calendar',(req, res)=>{
-    console.log(req.body);
-    res.send({});
-    temp=req.body;
-    console.log("-----CALENDAR-------");
-    res.send({});
-    let messageCalendar = req.body;
-    console.log(messageCalendar);
-    messages.push(messageCalendar);
-    io.emit("slack_message",messageCalendar);
+    giveDepartures(deps => {
+      let delays = deps.map(vbbSerializer).filter(massiveDelay);
+      socket.emit('all_delays', delays);
+    });
 
-    //Defining Calendar Insert function
-    var insertCalendar = function(db, callback) {
-       db.collection('calendar').insertOne( messageCalendar, function(err, result) {
-        assert.equal(err, null);
-        console.log("+++ Inserted a document into the calendar collection +++");
-        callback();
-      });
-    };
-
-    //Connect to MongoDB & Insert slimMessage (Calendar)
-    MongoClient.connect(urlmongodb, function(err, db) {
-      assert.equal(null, err);
-      insertCalendar(db, function() {
-          db.close();
-      });
+    getGoogleEvents((messages) => {
+      let slimMessages = messages.map(calendarSerializer);
+      socket.emit("all_calendar_messages", slimMessages);
+    });
+    socket.on("disconnect", () => {
+      console.log("client disconnected");
     });
   });
 
-
-//Send data to Socket.io
-io.on("connection",(socket)=>{
-    socket.emit("all_messages",messages); // <- REALLY temporary
-    console.log("client connected");
-    socket.on("disconnect",()=>{
-        console.log("client disconnected");
-    });
+  getSlackMessages(db, (messages) => {
+    console.log(`Slack message count: ${messages.length}`);
+  });
+  getGoogleEvents((events) => {
+    console.log(`Google event count: ${events.length}`);
+  });
+  server.listen(port, () => console.log(`Listening on port ${port}`));
 });
 
-// -----SLACK-------
-// { token: '7XzZXOewwL9PSRVbWuZCNUgQ',
-//   team_id: 'T54B2S3T9',
-//   api_app_id: 'A7QTK0DUN',
-//   event:
-//    { type: 'message',
-//      user: 'U68MZMMLP',
-//      text: 'test',
-//      ts: '1508970457.000114',
-//      channel: 'G7JRCFJSG',
-//      event_ts: '1508970457.000114' },
-//   type: 'event_callback',
-//   event_id: 'Ev7Q24GJRG',
-//   event_time: 1508970457,
-//   authed_users: [ 'U68MZMMLP' ] }
-// +++ Inserted a document into the slack collection +++
+setInterval(updateClients, calendarIntervalTime);
+
+//helper functions
+function updateClients() {
+  getLatestCalendar();
+  getDelays();
+}
+
+function getLatestCalendar() {
+  getGoogleEvents((events) => {
+    io.emit("all_calendar_messages", events.map(calendarSerializer));
+  });
+}
+
+function getDelays() {
+  giveDepartures((lines) => {
+    let delays = lines.map(vbbSerializer).filter(massiveDelay);
+    io.emit('all_delays', delays);
+  });
+}
+
+function getSlackMessages(db, cb) {
+  db.collection('slack').find({}).toArray(function (err, result) {
+    assert.equal(err, null);
+    cb(result);
+  });
+}
+
+function insertSlackMessage(db, message) {
+  db.collection('slack').insertOne(message, function (err, result) {
+    assert.equal(err, null);
+    console.log("+++ Inserted a document into the slack collection +++");
+  });
+}
+
+function slackSerializer(event) {
+  let slimMessage = {
+    text: event.text,
+    createdAt: new Date(event.ts * 1000),
+    user: {
+      name: event.user,
+      profile: event,
+    }
+  };
+  return slimMessage;
+}
+
+
+function calendarSerializer(message) {
+  let slimMessage = {
+    description: message.description,
+    summary: message.summary,
+    duration_minutes: message.duration_minutes,
+    location: message.location,
+    id: message.id,
+    start: {
+      time_pretty: message.start.time_pretty,
+      very_pretty: getNiceDate(message.start.dateTime),
+      dateTime: message.start.dateTime,
+    },
+    end: {
+      time_pretty: message.end.time_pretty,
+      very_pretty: getNiceDate(message.start.dateTime),
+      dateTime: message.end.dateTime,
+    },
+  };
+  return slimMessage;
+
+}
+
+
+function getNiceDate(dateTime) {
+  var timeNow = new Date();
+  var time = new Date(dateTime);
+  var todayAsNumber = timeNow.getDate();
+  var thisMonthAsNumber = timeNow.getMonth();
+  var thisYearAsNumber = timeNow.getFullYear();
+  if (timeNow.toDateString() === time.toDateString()) {
+    return time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
+  } else if (todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
+    return "Tomorrow, " + time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
+  } else {
+    return null;
+  }
+}
+
+function getFormatedMinutes(minutes) {
+  let unformatedString = '' + minutes;
+  if (unformatedString.length === 1) {
+    return '0' + unformatedString;
+  } else {
+    return unformatedString;
+  }
+}
+
+function giveDepartures(cb) {
+  var stops = [900190001, 900190010, 900015101, 900014102];
+
+  let promises = stops.map(stop => vbb.departures(stop, {
+    duration: 5
+  }));
+  Promise.all(promises).then(arrays => {
+    let allLines = [];
+    arrays.forEach(arr => allLines = allLines.concat(arr));
+    cb(allLines);
+  });
+}
+giveDepartures(lookIntoVBB);
+
+
+
+function lookIntoVBB(data) {
+  let slimMessages = data.map(vbbSerializer);
+  console.log("________________ALL_____________");
+  console.log(slimMessages);
+  console.log("______________DELAYS__________");
+  let delays = slimMessages.filter(massiveDelay);
+  console.log(delays);
+}
+
+function vbbSerializer(message) {
+  let slimMessage = {
+    stationName: message.station.name,
+    product: message.line.product,
+    lineName: message.line.name,
+    direction: message.direction,
+    departureTime: message.when,
+    delayInMinutes: message.delay / 60
+  };
+  return slimMessage;
+}
+
+
+function massiveDelay(message) {
+  if (message.delayInMinutes >= criticalDelayTime) {
+    return true;
+  }
+}
+
+
+
+
+//walking times:
+//Treptower Park: 15 Minuten
+//Lohmühlenstraße: 3 Minuten
+//Heckmannufer: 5 Minuten
+//Schlesisches Tor: 13 Minuten
+
+//Treptower Park: 900190001 (S41;S42;S8;S9)
+//Lohmühlenstr.: 900190010
+//Heckmannufer: 900015101
+//Schlesisches Tor: 900014102
