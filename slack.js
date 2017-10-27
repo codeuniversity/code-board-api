@@ -12,5 +12,16 @@ module.exports = {
         }, function(err, response){
         callback(response);
         });
-    }
+    },
+    getEmojies:(callback)=>{
+        slack.api('emoji.list',{
+
+        },(err,response)=>{
+            if(err){
+                console.log(err);
+            }else{
+                callback(response);
+            }
+        });
+    },
 };

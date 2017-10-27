@@ -21,6 +21,7 @@
     "google-auth-library": "^0.11.0",
     "googleapis": "^22.2.0",
     "mongodb": "^2.2.33",
+    "node-emoji": "^1.8.1",
     "refresh-token": "^1.0.0",
     "slack-node": "^0.1.8",
     "socket.io": "^2.0.3",

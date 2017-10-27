@@ -11,6 +11,7 @@ const MongoClient = require('mongodb').MongoClient;
 const assert = require('assert');
 const ObjectId = require('mongodb').ObjectID;
 const Slack = require('./slack');
+const Emoji = require('node-emoji');
 const urlmongodb = process.env.MONGO_URL;
 app.use(cors());
 app.use(bodyParser.json());
@@ -30,9 +31,11 @@ MongoClient.connect(urlmongodb, function (err, db) {
       if(event.type==='message'){
         Slack.getUser(event.user,(profile)=>{
           event.user = profile;
-  
-          insertSlackMessage(db, message.event);
-          io.emit('slack_message', slackSerializer(message.event));
+          replaceAliases(db, event.text, (text)=>{
+            event.text = text;
+            insertSlackMessage(db, message.event);
+            io.emit('slack_message', slackSerializer(message.event));  
+          });
         });
       }      
       console.log("-----SLACK-------");
@@ -49,7 +52,10 @@ MongoClient.connect(urlmongodb, function (err, db) {
       let slimMessages = messages.map(slackSerializer);
       socket.emit("all_slack_messages", slimMessages);
     });
-
+    Slack.getEmojies((resp)=>{
+      let emoji = resp.emoji;
+      socket.emit('emoji',emoji);
+    });
     giveDepartures(deps => {
       let delays = deps.map(vbbSerializer).filter(relevantLine).filter(massiveDelay);
       socket.emit('all_delays', delays);
@@ -70,6 +76,8 @@ MongoClient.connect(urlmongodb, function (err, db) {
   getGoogleEvents((events) => {
     console.log(`Google event count: ${events.length}`);
   });
+  
+  setInterval(()=>updateAliases(db), 20 * 1000); // 5 mins
   server.listen(port, () => console.log(`Listening on port ${port}`));
 });
 
@@ -93,24 +101,61 @@ function getDelays() {
     io.emit('all_delays', delays);
   });
 }
-
+function updateAliases(db){
+  Slack.getEmojies((resp)=>{
+    let emoji = resp.emoji;
+    let keys = Object.keys(emoji);
+    let aliases = keys.filter(key=>{
+      
+      return emoji[key].indexOf('alias:') > -1;
+    }).map(key=>{
+      return {key:key,value:emoji[key].slice(6,emoji[key].length)};
+    });
+    console.log('dropping');
+    db.dropCollection('alias').then((err,res)=>{
+      insertAliases(db, aliases);
+    },(fail)=>{
+      insertAliases(db, aliases);
+    });
+  });
+}
 function getSlackMessages(db, cb) {
   db.collection('slack').find({}).toArray(function (err, result) {
     assert.equal(err, null);
     cb(result);
   });
 }
-
+function getAliases(db, cb) {
+  db.collection('alias').find({}).toArray(function (err, result) {
+    assert.equal(err, null);
+    cb(result);
+  });
+}
 function insertSlackMessage(db, message) {
   db.collection('slack').insertOne(message, function (err, result) {
     assert.equal(err, null);
     console.log("+++ Inserted a document into the slack collection +++");
   });
 }
-
+function insertAliases(db,aliases) {
+  db.collection('alias').insertMany(aliases,(err, result)=>{
+    assert.equal(err, null);
+    console.log("+++ Inserted an alias into the alias collection +++");    
+  });
+}
+function replaceAliases(db, text ,cb){
+  text = text || '';
+  getAliases(db,(aliases)=>{
+    // console.log(aliases);
+    aliases.forEach(alias=>{
+      text = text.replace(`:${alias.key}:`,`:${alias.value}:`);
+    });
+    cb(text);
+  });
+}
 function slackSerializer(message) {
   let slimMessage = {
-    text: message.text,
+    text: Emoji.emojify(message.text),
     createdAt: new Date(message.ts * 1000),
     user: {
       profile: {
