@@ -77,7 +77,7 @@ MongoClient.connect(urlmongodb, function (err, db) {
     console.log(`Google event count: ${events.length}`);
   });
   
-  setInterval(()=>updateAliases(db), 20 * 1000); // 5 mins
+  setInterval(()=>updateAliases(db), 300 * 1000); // 5 mins
   server.listen(port, () => console.log(`Listening on port ${port}`));
 });
 
