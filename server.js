@@ -10,8 +10,8 @@ const getGoogleEvents = require('./google');
 const MongoClient = require('mongodb').MongoClient;
 const assert = require('assert');
 const ObjectId = require('mongodb').ObjectID;
+const Slack = require('./slack');
 const urlmongodb = process.env.MONGO_URL;
-
 app.use(cors());
 app.use(bodyParser.json());
 const server = http.createServer(app);
@@ -22,12 +22,22 @@ const criticalDelayTime = 5; //mins
 MongoClient.connect(urlmongodb, function (err, db) {
   app.post('/slack', (req, res) => {
     let message = req.body;
-    io.emit("slack_message", slackSerializer(message));
-    insertSlackMessage(db, message);
-    res.send({});
-
-    console.log("-----SLACK-------");
-    console.log(message);
+    if(message.challenge){
+      res.send(message.challenge);      
+    }else{
+      res.send({});  
+      let event = message.event;
+      if(event.type==='message'){
+        Slack.getUser(event.user,(profile)=>{
+          event.user = profile;
+  
+          insertSlackMessage(db, message.event);
+          io.emit('slack_message', slackSerializer(message.event));
+        });
+      }      
+      console.log("-----SLACK-------");
+    }
+   
 
   });
 
@@ -103,8 +113,9 @@ function slackSerializer(message) {
     text: message.text,
     createdAt: new Date(message.ts * 1000),
     user: {
-      name: message.user.name,
-      profile: message.user.profile,
+      profile: {
+        large_image_url: message.user.profile.image_1024,
+      },
     }
   };
   return slimMessage;
@@ -174,7 +185,7 @@ function giveDepartures(cb) {
     cb(allLines);
   });
 }
-giveDepartures(lookIntoVBB);
+// giveDepartures(lookIntoVBB);
 
 
 
