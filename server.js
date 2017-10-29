@@ -28,7 +28,7 @@ MongoClient.connect(urlmongodb, function (err, db) {
     }else{
       res.send({});  
       let event = message.event;
-      if(event.type==='message'){
+      if(event.type==='message' && event.channel && event.channel === 'G7JRCFJSG'){
         Slack.getUser(event.user,(profile)=>{
           event.user = profile;
           replaceAliases(db, event.text, (text)=>{
