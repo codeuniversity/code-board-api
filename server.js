@@ -24,9 +24,9 @@ MongoClient.connect(urlmongodb, function (err, db) {
   app.post('/slack', (req, res) => {
     let message = req.body;
     if(message.challenge){
-      res.send(message.challenge);      
+      res.send(message.challenge);
     }else{
-      res.send({});  
+      res.send({});
       let event = message.event;
       if(event.type==='message' && event.channel && event.channel === 'G7JRCFJSG'){
         Slack.getUser(event.user,(profile)=>{
@@ -34,13 +34,13 @@ MongoClient.connect(urlmongodb, function (err, db) {
           replaceAliases(db, event.text, (text)=>{
             event.text = text;
             insertSlackMessage(db, message.event);
-            io.emit('slack_message', slackSerializer(message.event));  
+            io.emit('slack_message', slackSerializer(message.event));
           });
         });
-      }      
+      }
       console.log("-----SLACK-------");
     }
-   
+
 
   });
 
@@ -76,7 +76,7 @@ MongoClient.connect(urlmongodb, function (err, db) {
   getGoogleEvents((events) => {
     console.log(`Google event count: ${events.length}`);
   });
-  
+
   setInterval(()=>updateAliases(db), 300 * 1000); // 5 mins
   server.listen(port, () => console.log(`Listening on port ${port}`));
 });
@@ -106,7 +106,7 @@ function updateAliases(db){
     let emoji = resp.emoji;
     let keys = Object.keys(emoji);
     let aliases = keys.filter(key=>{
-      
+
       return emoji[key].indexOf('alias:') > -1;
     }).map(key=>{
       return {key:key,value:emoji[key].slice(6,emoji[key].length)};
@@ -140,7 +140,7 @@ function insertSlackMessage(db, message) {
 function insertAliases(db,aliases) {
   db.collection('alias').insertMany(aliases,(err, result)=>{
     assert.equal(err, null);
-    console.log("+++ Inserted an alias into the alias collection +++");    
+    console.log("+++ Inserted an alias into the alias collection +++");
   });
 }
 function replaceAliases(db, text ,cb){
@@ -203,7 +203,7 @@ function getNiceDate(dateTime) {
   if (timeNow.toDateString() === time.toDateString()) {
     return time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
   } else if (todayAsNumber + 1 === time.getDate() && thisMonthAsNumber === time.getMonth() && thisYearAsNumber === time.getFullYear()) {
-    return "" + time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
+    return "TMR " + time.getHours() + ":" + getFormatedMinutes(time.getMinutes());
   } else {
     return null;
   }
